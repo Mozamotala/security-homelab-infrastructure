@@ -38,6 +38,16 @@ Each entry: what the level required, the wrong turns taken (if any), the concept
 
 **What it taught:** This is where `find` vs `grep` actually got sorted out for good: `find` answers "where is a file with these properties?" — `grep` answers "which line in a file I already have contains this text?" They were being treated as interchangeable before this, since both take a search term as an argument, but they operate on completely different things (filesystem metadata vs. file content).
 
+## Level 8 — `sort` + `uniq` to find the one unique line
+
+**What it required:** A large file where every line appears at least twice, except for one — the password was the single unique line among thousands of duplicates.
+
+**What tripped me up:** Trying `uniq` directly on the file first, which appeared to do nothing — every line still showed up.
+
+**What actually solved it:** `sort data.txt | uniq -u` — sorting first so duplicate lines end up adjacent to each other, then `uniq -u` to print only lines that have no adjacent duplicate.
+
+**What it taught:** This was caught through my own testing, not being told: `uniq` only removes duplicates that are immediately next to each other in the file — it does not scan the whole file for duplicates. On an unsorted file, two identical lines can be far apart, so `uniq` alone sees no adjacent match and changes nothing. Sorting first guarantees every duplicate of a line sits right next to its twin, which is what makes `uniq` actually work as a dedup tool. `-u` flips it further to print only the lines with zero duplicates at all — exactly the one-off password line.
+
 ## Level 9 — `strings` on a binary-garbage file, then re-reading own output
 
 **What it required:** A file that `cat` printed as unreadable, corrupted-looking symbols — the password was a human-readable string buried inside otherwise binary data, marked by a line of `=` characters just before it.
@@ -47,6 +57,10 @@ Each entry: what the level required, the wrong turns taken (if any), the concept
 **What actually solved it:** Going back over the same `strings` output a second time, more carefully, and spotting the one line following a `====` marker that the first read-through had scanned past.
 
 **What it taught:** Two things. First, mechanically: `cat` prints a file's raw bytes regardless of whether they're printable text or not, while `strings` filters a file down to only the sequences of bytes that fall in the printable-ASCII range — which is why the same file looks like garbage under `cat` and like (mostly) real words under `strings`. Second, less technical but arguably more important: sometimes the answer isn't hidden by a clever trick, it's just sitting in a wall of noise, and re-reading your own already-correct output more carefully solves it faster than trying a different command.
+
+## Levels 10–11 — solved without a recorded struggle
+
+**Level 10** covered base64 encoding/decoding, and **Level 11** covered a Caesar-cipher-style letter shift (rot13). Both were solved quickly enough (level 10 to 12 in roughly a day or two) that no real technique discussion exists anywhere to write up honestly — unlike the levels above, where getting stuck is exactly what left a detailed trail. Worth revisiting to write these up properly once the specific commands used are actually remembered, rather than guessing at what probably worked.
 
 ## Level 12 — nested compression and `xxd`
 
