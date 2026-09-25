@@ -2,6 +2,8 @@
 
 All containers run on this host and are only reachable over Tailscale — nothing is exposed to the public internet.
 
+![docker ps -a on the NAS](./images/terminal-docker-ps.png)
+
 ## Managed via docker-compose
 
 **immich** — photo backup and management
