@@ -35,6 +35,14 @@ Working through OverTheWire's Bandit wargame, self-directed and ungraded — sep
 
 Started as a way to stop paying for subscriptions (streaming, cloud storage, photo backup); turned into an ongoing way to build hands-on Linux, Docker, and infrastructure experience — now continuing alongside a BSc IT (Security and Network Engineering), starting February 2027.
 
+## Screenshots
+
+![NAS dashboard summary](./images/nas-dashboard-summary.png)
+
+![Rockstor system dashboard](./images/rockstor-dashboard.png)
+
+![Jellyfin library](./images/jellyfin.png)
+
 ## Status
 
 Core services are stable and unlikely to change significantly unless there's a rebuild. Docker Compose files and service configs will be added incrementally once secrets (passwords, API keys, Tailscale auth keys, etc.) are stripped out and replaced with placeholder values via `.env` files (not committed). This repo is otherwise updated as real changes occur (new service, config change, incident) rather than on a fixed schedule.
