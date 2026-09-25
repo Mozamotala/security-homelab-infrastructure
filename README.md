@@ -37,6 +37,10 @@ Started as a way to stop paying for subscriptions (streaming, cloud storage, pho
 
 ## Screenshots
 
+![Immich photo library](./images/immich.jpg)
+
+![Frigate NVR dashboard](./images/frigate.png)
+
 ![NAS dashboard summary](./images/nas-dashboard-summary.png)
 
 ![Rockstor system dashboard](./images/rockstor-dashboard.png)
