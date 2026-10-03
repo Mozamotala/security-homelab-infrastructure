@@ -1,23 +1,25 @@
 # security-homelab-infrastructure
 
-A self-hosted home NAS and Docker homelab, built and maintained solo. It started on an old Core 2 Duo box that died within months, and has been rebuilt into a stack of [CONFIRM: ~18 or ~20] Docker containers on Rockstor (openSUSE).
+A self-hosted home NAS and Docker homelab on Rockstor (openSUSE), built and maintained solo over about three years. Around 20 services, reachable only over Tailscale, with no ports forwarded on the router.
 
-> **Status:** documentation only for now. Docker Compose files and service configs will be added as secrets (passwords, API keys, Tailscale auth keys) are stripped and replaced with placeholders.
+It started as a way to stop paying for subscriptions (streaming, cloud storage, photo backup) and turned into my main hands-on way to learn Linux, Docker, networking and security alongside my studies. I had no infrastructure experience going in. I used AI throughout to learn, but I asked why before running commands and made my own attempt at every failure before asking for help.
 
-## Why this exists
+![NAS dashboard](./images/nas-dashboard-summary.png)
 
-It began as a way to stop paying for subscriptions (streaming, cloud storage, photo backup). It became a hands-on way to learn Linux, Docker, networking and basic security alongside my formal studies. I had no infrastructure experience going in. I used AI throughout to learn, but I asked why before running commands and made my own attempt at every failure before asking for help.
+> **Status:** documentation only for now. Compose files and service configs will be added once secrets (passwords, API keys, Tailscale auth keys) are stripped and replaced with placeholders. The standalone `docker run` containers still need converting to compose first (see [Next steps](#next-steps)).
 
 ## Hardware and storage
 
 | Component | Detail |
 |---|---|
-| CPU / RAM | Ryzen 5500, 16 GB |
+| CPU / RAM | AMD Ryzen 5 5500, 16 GB |
 | OS | Rockstor 5.1 on openSUSE Leap 15.6 |
-| Data pool | btrfs **RAID1**, about 1.82 TB usable, quotas enabled (Nextcloud and service data) |
-| Root volume | btrfs, single profile with duplicated metadata |
+| Data pool | btrfs **RAID1** across two 2 TB drives, about 1.82 TB usable (845 GB used), quotas enabled |
+| Root volume | btrfs on a separate disk, single profile with duplicated metadata |
 
-**What RAID1 does and doesn't do:** it keeps the data available if one disk fails. It is not a backup: a deletion or corruption is mirrored to both disks. [CONFIRM and fill in: what the actual backup is, e.g. second location, snapshots, off-site copy. If there isn't one yet, say so here and list it under "Next steps".]
+![Rockstor storage pools](./images/rockstor-storage-pools.png)
+
+RAID1 keeps the data available if one drive fails. It is **not** a backup: a deletion or a bad write is mirrored to both disks. I learned that directly, see [incidents.md](./incidents.md). More detail in [storage.md](./storage.md).
 
 ## Services
 
@@ -29,60 +31,69 @@ It began as a way to stop paying for subscriptions (streaming, cloud storage, ph
 | Surveillance | Frigate (NVR) |
 | Security | ClamAV, Pi-hole |
 | Monitoring and alerts | Homepage, Glances, Dozzle, ntfy, Gotify |
-| Other | Ollama, Cloudflared |
+| Other | Ollama |
+
+Image names, versions and how each one is run are in [docker.md](./docker.md).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    Phone["My devices"] -- "Tailscale" --> NAS
-    subgraph NAS["Rockstor NAS (Ryzen 5500)"]
+    Devices["My devices"] -- "Tailscale only" --> NAS
+    subgraph NAS["Rockstor NAS"]
         direction TB
-        Docker["Docker containers"]
+        Docker["Docker services"]
         Pool[("btrfs RAID1 pool")]
         Docker --> Pool
-        Mon["Glances / Dozzle / ntfy"] -. "watches" .-> Docker
+        Cron["Cron scripts: drive health, container health, config backup"]
+        Cron -. "checks" .-> Docker
+        Cron -. "checks" .-> Pool
         AV["ClamAV"] -. "scans" .-> Pool
     end
+    Cron -- "alerts" --> Notify["ntfy + email"]
     Router["Home router (no ports forwarded)"] --- NAS
 ```
 
-## Security decisions
+## Security and reliability
 
-- **No ports forwarded.** Remote access is Tailscale only. Nothing on the NAS is reachable from the public internet through the router, which removes the biggest attack surface of a typical homelab. [CONFIRM: describe what Cloudflared is used for, if anything, so this claim stays accurate.]
-- **Malware scanning that is actually tested.** ClamAV runs on-access, and I verified the whole chain with an EICAR test file: detection, then an alert through ntfy and email. A scanner you've never seen fire is an assumption, not a control.
-- **Monitoring and alerting.** Service health alerts go out through ntfy and email, and a listener notifies me when the server restarts.
-- **DNS filtering.** Pi-hole handles network-level blocking. [CONFIRM: add what it covers.]
-- **Drive health.** [CONFIRM: SMART monitoring. If it's set up, describe the check and alert path. If not, remove this line.]
+- **Tailscale-only access.** Nothing is forwarded on the router, which removes the biggest attack surface of a typical homelab.
+- **Malware scanning that is actually tested.** ClamAV runs on-access, and I verified the whole chain with an EICAR test file: detection, then an alert through ntfy and email.
+- **Drive health monitoring.** `drive-monitor.sh` runs nightly at 02:00: SMART health, temperature, reallocated/pending/uncorrectable sectors, `btrfs device stats` and scrub status. It also flags a stale config backup. This is what caught my failing drive (below).
+- **Container health.** `container-health.sh` runs hourly, auto-restarts anything that is down, and alerts on high CPU or temperature, with a cooldown so a persistent fault does not spam me.
+- **Planned weekly reboot** with a pre-flight check five minutes before.
+- **Secrets stay out of the repo.** Alert addresses and the ntfy topic name are redacted in [scripts.md](./scripts.md); topic names are treated as secrets because anyone who knows one can read or post to it.
 
-## Incidents and what I learned
+All scripts, schedules and what each one does: [scripts.md](./scripts.md).
 
-### Lost Nextcloud encryption key (early build)
-Rebuilt on the Ryzen box, but with no backups yet, I lost the Nextcloud encryption key and everything encrypted with it. That loss is the reason backups and monitoring are treated as requirements now, not extras.
+## Incidents
 
-### Power outage, two failures at once
-- **Mesh bridging corrupted:** after the outage, the NAS could reach the router and the internet, but no WiFi device could see it. The TP-Link Deco mesh's wired/WiFi bridging had broken. Fix: a full cold power-cycle of every node, main unit first.
-- **Docker would not start:** Rockstor's immutable flag had tripped on `/mnt2/home`, which blocked Docker. This was a repeat failure. I cleared it with `chattr -i`, then fixed the root cause with a systemd drop-in that clears the flag before Docker starts on every boot.
-- **Name lookups broken:** Tailscale's MagicDNS had silently overwritten DNS resolution. I diagnosed it and disabled it.
+Real failures, kept as a log because the diagnosis is the point. Full write-ups in [incidents.md](./incidents.md). Highlights:
 
-### Server showing 7.6 GB of RAM instead of 16 GB
-Worked through `free -h`, `/proc/meminfo` and load tests before opening the case and finding a loose RAM stick. After reseating it, qBittorrent's memory use dropped from about 1.35 GB to about 99 MB because it was no longer starved.
+- **Failing drive, replaced live.** Monitoring caught a Seagate drive with 29,744 reallocated sectors and over 3,300 read errors. I migrated the data off with `btrfs device delete`, swapped in a NAS-rated IronWolf, added it with `btrfs device add`, and rebuilt the mirror with a RAID1 balance, all with the pool online. Eighteen sectors on the new drive stayed uncorrectable, so I made that the new baseline and the alert now fires only if the count rises.
+- **Write-time btrfs corruption.** The pool was forced read-only and the NAS failed to boot. I traced it to a faulty RAM stick, removed it, verified the pool with `btrfs device stats` and a full scrub, and wrote up why RAID1 could not have prevented it.
+- **Docker blocked after a power cut.** Rockstor's immutable flag tripped on `/mnt2/home`. I cleared it with `chattr -i`, then added a systemd drop-in that clears it before Docker starts on every boot so it cannot recur.
+- **Lost Nextcloud encryption key** early on, before any backups existed. This is why backup and monitoring are requirements now.
 
-### Books integration (Bookshelf + Kavita)
-Adding this on top of the existing *arr stack surfaced several real bugs: a Docker image tag that didn't exist, two services defaulting to the same port, permission errors on the app's own data folder, and a missing volume mount that left one app unable to see files another had downloaded. The hardest was a qBittorrent authentication failure caused by a confirmed bug in a specific version, fixed by pinning to an older release.
+## Backups, honestly
 
-### Jellyfin
-Images silently failing to load, transcoding and hardware-acceleration settings, and watched shows reappearing in "Recently Added". The last one was caused by Jellyfin sorting by file date instead of scan date, and fixed in the library's date-added setting.
+- A monthly `config-backup.sh` saves configuration only: crontab, container configs, Samba and Frigate config.
+- Data is **not** covered by that script. Irreplaceable files such as Immich photos rely on the RAID1 mirror plus manual and off-site copies.
+- Closing that gap with an automated off-site data backup is the top item in the next steps.
 
-## Honest notes
+## What is in this repo
 
-- A prebuilt NAS would have been less work. Containers still randomly go down and I still see the occasional corruption error.
-- Rockstor's Rock-ons can fail on very old hardware. Installing containers directly from linuxserver.io images is more work up front, but you understand what is running.
-- It took three or more dead builds before this one stayed up. [CONFIRM: total project time, 2 or 3 years.]
+| File | Contents |
+|---|---|
+| [storage.md](./storage.md) | Pool layout, shares, what RAID1 does and does not protect against |
+| [docker.md](./docker.md) | Every service, how it is run, planned compose migration |
+| [scripts.md](./scripts.md) | Cron schedule and what each monitoring and maintenance script does |
+| [incidents.md](./incidents.md) | Failure log with diagnosis, fix and lessons |
+| [bandit-writeups.md](./bandit-writeups.md) | OverTheWire Bandit notes |
+| [JOURNEY.md](./JOURNEY.md) | The longer personal story behind the build |
 
 ## Next steps
 
-- Add sanitized Docker Compose files and a `.env.example`
-- [CONFIRM: backup plan, if not already in place]
-- Scan git history for secrets (e.g. gitleaks) before publishing configs
-- Add screenshots of the dashboard and storage pages
+- Automated off-site backup of irreplaceable data (Immich photos, Nextcloud)
+- Convert the standalone `docker run` containers to compose files, then publish them with a `.env.example`
+- Scan the git history for secrets (for example with gitleaks) before publishing any configs
+- Confirm the last full scrub finished clean and memtest or replace the pulled RAM stick
