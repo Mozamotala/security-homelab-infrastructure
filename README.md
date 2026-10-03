@@ -1,52 +1,88 @@
 # security-homelab-infrastructure
 
-A self-hosted home NAS and Docker homelab, built and maintained solo over ~2 years — started on a dead Core 2 Duo box and grown into a mature ~21-service stack. Total project timeline, counting earlier dead builds and downtime, is closer to 3 years.
+A self-hosted home NAS and Docker homelab, built and maintained solo. It started on an old Core 2 Duo box that died within months, and has been rebuilt into a stack of [CONFIRM: ~18 or ~20] Docker containers on Rockstor (openSUSE).
 
-## Hardware and OS
-
-- Ryzen 5500, 16GB RAM, running Rockstor (openSUSE-based)
-- Service data and the Nextcloud webroot live under `/mnt2/killa` and `/mnt2/nextcloud`, on a btrfs RAID1 pool across two 1.82TB disks
-- Predecessor build: a Core 2 Duo with 8GB RAM, which failed within months — the current Ryzen box is the second full rebuild
-
-## Overview
-
-- **Storage:** btrfs RAID1 across two 1.82TB disks; see [storage.md](./storage.md)
-- **Services:** ~21 Docker containers — media management, photo backup, file sync, home security NVR, DNS/ad-blocking, dashboards; see [docker.md](./docker.md)
-- **Automation:** health checks, monthly config backups, media compression, and safe scheduled reboots, all via cron; see [scripts.md](./scripts.md)
-- **Access:** Tailscale only, no ports forwarded or opened on the router
-- **Incidents:** real failures and how they were diagnosed and fixed; see [incidents.md](./incidents.md)
-- **The full story:** why this exists and what it took to get here, in my own words; see [JOURNEY.md](./JOURNEY.md)
-
-## Tools and research
-
-This project was built through heavy self-directed research, with AI assistance (Claude, ChatGPT, Gemini, DeepSeek) used throughout for troubleshooting, explaining concepts, and thinking through fixes — not as a substitute for understanding, but as a research and learning aid, the same way documentation or Stack Overflow would be used.
-
-No command was copy-pasted without understanding it. Every command was typed out personally, and when something didn't make sense, the question came before the keystroke — asking why a fix worked, not just applying it. The lab was treated as a learning platform throughout, not something AI set up on its own.
-
-That said, real gaps remained — hands-on infrastructure work and structured security fundamentals aren't the same thing. That's the direct reason for the OverTheWire Bandit work below, and the planned move to Hack The Box afterward: closing those gaps deliberately, not just accumulating more infrastructure.
-
-## Security learning, alongside this project
-
-See [bandit-writeups.md](./bandit-writeups.md) for technique write-ups (no passwords or keys).
-
-Working through OverTheWire's Bandit wargame, self-directed and ungraded — separate from formal coursework. Plan is to move on to Hack The Box's beginner tracks once Bandit is complete.
+> **Status:** documentation only for now. Docker Compose files and service configs will be added as secrets (passwords, API keys, Tailscale auth keys) are stripped and replaced with placeholders.
 
 ## Why this exists
 
-Started as a way to stop paying for subscriptions (streaming, cloud storage, photo backup); turned into an ongoing way to build hands-on Linux, Docker, and infrastructure experience — now continuing alongside a BSc IT (Security and Network Engineering), starting February 2027.
+It began as a way to stop paying for subscriptions (streaming, cloud storage, photo backup). It became a hands-on way to learn Linux, Docker, networking and basic security alongside my formal studies. I had no infrastructure experience going in. I used AI throughout to learn, but I asked why before running commands and made my own attempt at every failure before asking for help.
 
-## Screenshots
+## Hardware and storage
 
-![Immich photo library](./images/immich.jpg)
+| Component | Detail |
+|---|---|
+| CPU / RAM | Ryzen 5500, 16 GB |
+| OS | Rockstor 5.1 on openSUSE Leap 15.6 |
+| Data pool | btrfs **RAID1**, about 1.82 TB usable, quotas enabled (Nextcloud and service data) |
+| Root volume | btrfs, single profile with duplicated metadata |
 
-![Frigate NVR dashboard](./images/frigate.png)
+**What RAID1 does and doesn't do:** it keeps the data available if one disk fails. It is not a backup: a deletion or corruption is mirrored to both disks. [CONFIRM and fill in: what the actual backup is, e.g. second location, snapshots, off-site copy. If there isn't one yet, say so here and list it under "Next steps".]
 
-![NAS dashboard summary](./images/nas-dashboard-summary.png)
+## Services
 
-![Rockstor system dashboard](./images/rockstor-dashboard.png)
+| Area | Services |
+|---|---|
+| Media | Jellyfin, Kavita, Bookshelf |
+| Automation | Sonarr, Radarr, Prowlarr, qBittorrent, FlareSolverr |
+| Files and photos | Nextcloud, Immich |
+| Surveillance | Frigate (NVR) |
+| Security | ClamAV, Pi-hole |
+| Monitoring and alerts | Homepage, Glances, Dozzle, ntfy, Gotify |
+| Other | Ollama, Cloudflared |
 
-![Jellyfin library](./images/jellyfin.png)
+## Architecture
 
-## Status
+```mermaid
+flowchart LR
+    Phone["My devices"] -- "Tailscale" --> NAS
+    subgraph NAS["Rockstor NAS (Ryzen 5500)"]
+        direction TB
+        Docker["Docker containers"]
+        Pool[("btrfs RAID1 pool")]
+        Docker --> Pool
+        Mon["Glances / Dozzle / ntfy"] -. "watches" .-> Docker
+        AV["ClamAV"] -. "scans" .-> Pool
+    end
+    Router["Home router (no ports forwarded)"] --- NAS
+```
 
-Core services are stable and unlikely to change significantly unless there's a rebuild. Docker Compose files and service configs will be added incrementally once secrets (passwords, API keys, Tailscale auth keys, etc.) are stripped out and replaced with placeholder values via `.env` files (not committed). This repo is otherwise updated as real changes occur (new service, config change, incident) rather than on a fixed schedule.
+## Security decisions
+
+- **No ports forwarded.** Remote access is Tailscale only. Nothing on the NAS is reachable from the public internet through the router, which removes the biggest attack surface of a typical homelab. [CONFIRM: describe what Cloudflared is used for, if anything, so this claim stays accurate.]
+- **Malware scanning that is actually tested.** ClamAV runs on-access, and I verified the whole chain with an EICAR test file: detection, then an alert through ntfy and email. A scanner you've never seen fire is an assumption, not a control.
+- **Monitoring and alerting.** Service health alerts go out through ntfy and email, and a listener notifies me when the server restarts.
+- **DNS filtering.** Pi-hole handles network-level blocking. [CONFIRM: add what it covers.]
+- **Drive health.** [CONFIRM: SMART monitoring. If it's set up, describe the check and alert path. If not, remove this line.]
+
+## Incidents and what I learned
+
+### Lost Nextcloud encryption key (early build)
+Rebuilt on the Ryzen box, but with no backups yet, I lost the Nextcloud encryption key and everything encrypted with it. That loss is the reason backups and monitoring are treated as requirements now, not extras.
+
+### Power outage, two failures at once
+- **Mesh bridging corrupted:** after the outage, the NAS could reach the router and the internet, but no WiFi device could see it. The TP-Link Deco mesh's wired/WiFi bridging had broken. Fix: a full cold power-cycle of every node, main unit first.
+- **Docker would not start:** Rockstor's immutable flag had tripped on `/mnt2/home`, which blocked Docker. This was a repeat failure. I cleared it with `chattr -i`, then fixed the root cause with a systemd drop-in that clears the flag before Docker starts on every boot.
+- **Name lookups broken:** Tailscale's MagicDNS had silently overwritten DNS resolution. I diagnosed it and disabled it.
+
+### Server showing 7.6 GB of RAM instead of 16 GB
+Worked through `free -h`, `/proc/meminfo` and load tests before opening the case and finding a loose RAM stick. After reseating it, qBittorrent's memory use dropped from about 1.35 GB to about 99 MB because it was no longer starved.
+
+### Books integration (Bookshelf + Kavita)
+Adding this on top of the existing *arr stack surfaced several real bugs: a Docker image tag that didn't exist, two services defaulting to the same port, permission errors on the app's own data folder, and a missing volume mount that left one app unable to see files another had downloaded. The hardest was a qBittorrent authentication failure caused by a confirmed bug in a specific version, fixed by pinning to an older release.
+
+### Jellyfin
+Images silently failing to load, transcoding and hardware-acceleration settings, and watched shows reappearing in "Recently Added". The last one was caused by Jellyfin sorting by file date instead of scan date, and fixed in the library's date-added setting.
+
+## Honest notes
+
+- A prebuilt NAS would have been less work. Containers still randomly go down and I still see the occasional corruption error.
+- Rockstor's Rock-ons can fail on very old hardware. Installing containers directly from linuxserver.io images is more work up front, but you understand what is running.
+- It took three or more dead builds before this one stayed up. [CONFIRM: total project time, 2 or 3 years.]
+
+## Next steps
+
+- Add sanitized Docker Compose files and a `.env.example`
+- [CONFIRM: backup plan, if not already in place]
+- Scan git history for secrets (e.g. gitleaks) before publishing configs
+- Add screenshots of the dashboard and storage pages
