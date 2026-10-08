@@ -2,7 +2,7 @@
 
 **System:** Rockstor (openSUSE Leap 15.6) NAS, Ryzen 5500, OS on a single SATA disk, data on a two-drive btrfs RAID1 pool.
 **Impact:** NAS offline for several hours; no data loss found.
-**Status:** NAS running via the recovery GRUB entry. Default entry still being fixed.
+**Status:** Resolved. The NAS now boots by itself from the default GRUB entry. The exact root cause of the earlier hang is not confirmed (see below).
 
 ## Summary
 
@@ -21,6 +21,7 @@ I reset my shell passwords and rebooted. The NAS never came back on the network 
 | Rescue shell `lsblk -f` | OS disk and both pool drives all healthy and visible | Mounted root + EFI, chrooted in |
 | `grub2-mkconfig` worked; `dracut` failed with `/var/tmp: No such file or directory` | initrd rebuild needs a temp dir that did not exist in the chroot | Created `/var/tmp`, retried (result not confirmed) |
 | Default entry hung after "Loading initial ramdisk", screen dead | Display/GPU path or initrd | Recovery entry from the GRUB menu booted fully |
+| Later reboots | Default entry boots by itself, pools mount, Docker starts after a few minutes | Most likely fixed by the rebuilt initrd and regenerated GRUB config, but the earlier hang could also have been the temporary GPU/riser display path. Not confirmed. |
 
 ## Useful techniques
 
@@ -56,7 +57,6 @@ I reset my shell passwords and rebooted. The NAS never came back on the network 
 ## Open items
 
 - Check whether the app's database setting makes the damaged database file a live database or a leftover, then delete or restore it so the baseline can go back to 0.
-- Fix the default GRUB entry (recovery entry works).
-- Check the NAS ethernet link: it negotiated 100 Mbps, which points at the cable or port.
-- Reserve the NAS address in the router.
+- Network: the link had negotiated only 100 Mbps. After plugging into the switch it reports 1000 Mbps, so the cable or port was the cause. The NAS address is reserved in the router.
+- Replace the temporary GPU setup with a permanent, reliable display card.
 - Memtest or replace the pulled RAM stick, and back up the photo library off the NAS.
