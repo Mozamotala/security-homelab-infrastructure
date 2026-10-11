@@ -34,9 +34,14 @@ All containers run on this host and are only reachable over Tailscale — nothin
 | pihole | pihole/pihole | Network-wide DNS/ad-blocking |
 | glances | nicolargo/glances | System resource monitor |
 | ntfy | binwiederhier/ntfy | Push notifications |
-| gotify | gotify/server | Push notifications (secondary) |
-| cloudflared | cloudflare/cloudflared | Cloudflare tunnel client |
 
 *Planned: migrate the standalone containers to compose files for reproducibility.*
 
-*Note: `gotify` and `cloudflared` weren't visible in a live `docker ps` snapshot taken during this documentation session — may not have been running at that moment. Confirm before relying on this list, and remove either here if they've genuinely been retired.*
+## Set up but currently stopped
+
+| Service | Image | Purpose |
+|---|---|---|
+| gotify | gotify/server | Push notifications (secondary to ntfy) |
+| cloudflared | cloudflare/cloudflared | Cloudflare tunnel client |
+
+*Running count verified with `docker ps` on 2026-10-11: 21 containers (8 compose-managed, 13 `docker run`).*

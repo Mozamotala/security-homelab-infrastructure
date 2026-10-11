@@ -6,7 +6,7 @@ The lab started for a simple reason: I wanted to stop paying for subscriptions. 
 
 It started on a Core 2 Duo with 8GB RAM. It died within months. I let it sit for a while, then rebuilt on a Ryzen 5500 with 16GB RAM and 4TB storage — better hardware, but early on I lost the Nextcloud encryption key and everything with it. No backups yet at that point. It sat dead for another stretch after that.
 
-The current build is Rockstor (openSUSE) on that same Ryzen box, running around 20 Docker containers: Immich, Jellyfin, Frigate (NVR), Nextcloud, the *arr stack (Sonarr, Radarr, Prowlarr), qBittorrent, Pi-hole, Ollama, Kavita, Bookshelf, Glances, Homepage, Dozzle, ntfy, Gotify, FlareSolverr, ClamAV, and Cloudflared. Everything is Tailscale-only — no ports forwarded on the router.
+The current build is Rockstor (openSUSE) on that same Ryzen box, running 21 Docker containers: Immich, Jellyfin, Frigate (NVR), Nextcloud, the *arr stack (Sonarr, Radarr, Prowlarr), qBittorrent, Pi-hole, Ollama, Kavita, Bookshelf, Glances, Homepage, Dozzle, ntfy, FlareSolverr, and ClamAV, with Gotify and Cloudflared set up but currently stopped. Everything is Tailscale-only — no ports forwarded on the router.
 
 I had zero experience going in. I used AI throughout, and I'm not going to pretend otherwise — but it wasn't copy-paste. When a command didn't make sense I asked why before running it. When something broke I made my own attempt first, and only asked for guidance after actually trying. AI explaining something clearly isn't cheating at learning it — it's how I learned it. Hours went into this, not minutes.
 

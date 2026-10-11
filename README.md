@@ -1,6 +1,6 @@
 # security-homelab-infrastructure
 
-A self-hosted home NAS and Docker homelab on Rockstor (openSUSE), built and maintained solo over about three years. Around 20 services, reachable only over Tailscale, with no ports forwarded on the router.
+A self-hosted home NAS and Docker homelab on Rockstor (openSUSE), built and maintained solo over about three years. 21 services, reachable only over Tailscale, with no ports forwarded on the router.
 
 It started as a way to stop paying for subscriptions (streaming, cloud storage, photo backup) and turned into my main hands-on way to learn Linux, Docker, networking and security alongside my studies. I had no infrastructure experience going in. I used AI throughout to learn, but I asked why before running commands and made my own attempt at every failure before asking for help.
 
@@ -30,7 +30,7 @@ RAID1 keeps the data available if one drive fails. It is **not** a backup: a del
 | Files and photos | Nextcloud, Immich |
 | Surveillance | Frigate (NVR) |
 | Security | ClamAV, Pi-hole |
-| Monitoring and alerts | Homepage, Glances, Dozzle, ntfy, Gotify |
+| Monitoring and alerts | Homepage, Glances, Dozzle, ntfy |
 | Other | Ollama |
 
 Image names, versions and how each one is run are in [docker.md](./docker.md).
